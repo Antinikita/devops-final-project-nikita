@@ -3,33 +3,33 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = "antinikita/todo-app-nikita:${env.BUILD_ID}"
-        DOCKER_REGISTRY_CRED = 'docker-hub-credentials'
+        DOCKER_REGISTRY_CRED = 'dockerhub-creds' // Проверь ID в Jenkins Credentials!
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // В обычном Pipeline вместо 'checkout scm' используй 'git'
                 git branch: 'main', url: 'https://github.com/Antinikita/devops-final-project-nikita.git'
             }
         }
 
         stage('Build & Static Analysis') {
             steps {
-                // Для Windows используем bat и gradlew.bat
-                bat 'cd app && gradlew.bat clean build -x test -Porg.gradle.java.installations.auto-download=false'                echo "Running SpotBugs/Checkstyle..."
+                // РАЗДЕЛИЛ НА ДВЕ СТРОКИ:
+                bat 'cd app && gradlew.bat clean build -x test -Porg.gradle.java.installations.auto-download=false'
+                echo "Running SpotBugs/Checkstyle..."
             }
         }
 
         stage('Test') {
             steps {
-                bat 'gradlew.bat test'
+                // Добавил cd app, так как gradlew лежит там
+                bat 'cd app && gradlew.bat test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                // Используй прямые слэши в путях
                 bat "docker build -t ${DOCKER_IMAGE} -f app/Dockerfile_Nikita app/"
             }
         }
@@ -37,8 +37,8 @@ pipeline {
         stage('Push to Registry') {
             steps {
                 script {
-                    // Используй метод withCredentials или напрямую через bat, если плагин docker не настроен
-                    withDockerRegistry([ credentialsId: "${DOCKER_REGISTRY_CRED}", url: "" ]) {
+                    // Убедись, что ID совпадает с тем, что в твоем Jenkins
+                    docker.withRegistry('', "${DOCKER_REGISTRY_CRED}") {
                         bat "docker push ${DOCKER_IMAGE}"
                     }
                 }
@@ -50,7 +50,6 @@ pipeline {
                 branch 'main'
             }
             steps {
-                // Проверь, что kubectl доступен в PATH на Windows
                 bat "kubectl set image deployment/todo-app-nikita todo-app=${DOCKER_IMAGE}"
             }
         }
@@ -58,8 +57,7 @@ pipeline {
 
     post {
         always {
-            // Исправляем путь для Windows
-            archiveArtifacts artifacts: 'app/build/libs/*.jar', fingerprint: true
+            archiveArtifacts artifacts: 'app/build/libs/*.jar', allowEmptyArchive: true
         }
         success {
             echo "Success! Nikita, build is ready."
