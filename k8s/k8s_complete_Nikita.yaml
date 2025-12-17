@@ -1,4 +1,4 @@
-# 1. Секреты для базы данных
+# 1. Секреты для базы данных (Requirement: Secret for database credentials)
 apiVersion: v1
 kind: Secret
 metadata:
@@ -8,7 +8,17 @@ stringData:
   username: nikita_user
   password: nikita_password
 ---
-# 2. База данных PostgreSQL
+# 2. Конфигурация приложения (Requirement: ConfigMap for application configuration)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todo-app-config
+data:
+  APPLICATION_ENV: "production"
+  # URL базы данных использует имя сервиса db-service-nikita
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://db-service-nikita:5432/library_db"
+---
+# 3. База данных PostgreSQL (Requirement: Deployment)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -41,6 +51,7 @@ spec:
                   name: db-secret-nikita
                   key: password
 ---
+# 4. Сервис для базы данных
 apiVersion: v1
 kind: Service
 metadata:
@@ -52,7 +63,7 @@ spec:
     - port: 5432
       targetPort: 5432
 ---
-# 3. Твое приложение (Todo App)
+# 5. Твое приложение (Requirement: Deployment with Limits and Probes)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,12 +80,36 @@ spec:
     spec:
       containers:
         - name: todo-app
-          image: antinikita/todo-app-nikita:6 # Твой проверенный образ!
+          image: antinikita/todo-app-nikita:19 # Укажи здесь последний тег из Jenkins
           ports:
             - containerPort: 8080
+          # Лимиты ресурсов (Requirement: CPU and memory limits)
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+          # Проверки работоспособности (Requirement: Liveness and readiness probes)
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 40
+          # Подключение секретов и конфигов (Requirement: Mount ConfigMap and Secret)
           env:
             - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://db-service-nikita:5432/library_db
+              valueFrom:
+                configMapKeyRef:
+                  name: todo-app-config
+                  key: SPRING_DATASOURCE_URL
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -86,6 +121,7 @@ spec:
                   name: db-secret-nikita
                   key: password
 ---
+# 6. Сервис приложения (Requirement: Service NodePort)
 apiVersion: v1
 kind: Service
 metadata:
@@ -98,3 +134,23 @@ spec:
     - port: 8080
       targetPort: 8080
       nodePort: 30001
+---
+# 7. Автомасштабирование (Requirement: Horizontal Pod Autoscaler - HPA)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: todo-app-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: todo-app-nikita
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50

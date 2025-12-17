@@ -1,0 +1,6 @@
+- name: Infrastructure Setup and App Deployment
+  hosts: local
+  become: yes
+  roles:
+    - docker_install
+    - k8s_deploy

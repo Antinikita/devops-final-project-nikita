@@ -1,0 +1,18 @@
+- name: Install Docker (Apt)
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Add user nikita to docker group
+  user:
+    name: nikita
+    groups: docker
+    append: yes
+  notify: restart docker
+
+- name: Download kubectl
+  get_url:
+    url: "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
