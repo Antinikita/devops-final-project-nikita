@@ -17,8 +17,7 @@ pipeline {
         stage('Build & Static Analysis') {
             steps {
                 // Для Windows используем bat и gradlew.bat
-                bat 'cd app && gradlew.bat clean build -x test'
-                echo "Running SpotBugs/Checkstyle..."
+                bat 'cd app && gradlew.bat clean build -x test -Porg.gradle.java.installations.auto-download=false'                echo "Running SpotBugs/Checkstyle..."
             }
         }
 
