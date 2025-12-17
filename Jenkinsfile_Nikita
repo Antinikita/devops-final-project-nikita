@@ -2,62 +2,71 @@ pipeline {
     agent any
 
     environment {
-        // Твой логин из скриншота
-        REGISTRY_USER = "antinikita"
-        IMAGE_NAME = "todo-app-nikita"
-        // ID из твоего скриншота!
-        DOCKER_CREDS_ID = "dockerhub-creds"
+        DOCKER_IMAGE = "antinikita/todo-app-nikita:${env.BUILD_ID}"
+        DOCKER_REGISTRY_CRED = 'docker-hub-credentials'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                // В обычном Pipeline вместо 'checkout scm' используй 'git'
+                git branch: 'main', url: 'https://github.com/Antinikita/devops-final-project-nikita.git'
             }
         }
 
-        stage('Build & Test') {
+        stage('Build & Static Analysis') {
             steps {
-                dir('app') {
-                    // Используем bat для Windows. Тесты включены!
-                    bat '.\gradlew.bat clean build'
+                // Для Windows используем bat и gradlew.bat
+                bat 'gradlew.bat clean build -x test'
+                echo "Running SpotBugs/Checkstyle..."
+            }
+        }
+
+        stage('Test') {
+            steps {
+                bat 'gradlew.bat test'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                // Используй прямые слэши в путях
+                bat "docker build -t ${DOCKER_IMAGE} -f app/Dockerfile_Nikita app/"
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                script {
+                    // Используй метод withCredentials или напрямую через bat, если плагин docker не настроен
+                    withDockerRegistry([ credentialsId: "${DOCKER_REGISTRY_CRED}", url: "" ]) {
+                        bat "docker push ${DOCKER_IMAGE}"
+                    }
                 }
             }
         }
 
-        stage('Docker Build') {
-            steps {
-                dir('app') {
-                    // Тегируем образом с номером билда (динамическое тегирование)
-                    bat "docker build -t ${REGISTRY_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER} -f Dockerfile_Nikita ."
-                    // Также тегируем как latest для удобства
-                    bat "docker tag ${REGISTRY_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER} ${REGISTRY_USER}/${IMAGE_NAME}:latest"
-                }
+        stage('Conditional Deploy') {
+            when {
+                branch 'main'
             }
-        }
-
-        stage('Push to Docker Hub') {
-            // Пушим только если это главная ветка
-            when { branch 'main' }
             steps {
-                // Используем твой ID из скриншота
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDS_ID}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    bat "echo %PASS% | docker login -u %USER% --password-stdin"
-                    bat "docker push ${REGISTRY_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
-                    bat "docker push ${REGISTRY_USER}/${IMAGE_NAME}:latest"
-                }
+                // Проверь, что kubectl доступен в PATH на Windows
+                bat "kubectl set image deployment/todo-app-nikita todo-app=${DOCKER_IMAGE}"
             }
         }
     }
 
     post {
-        success {
-            // Архивируем JAR (требование: Archive build artifacts)
+        always {
+            // Исправляем путь для Windows
             archiveArtifacts artifacts: 'app/build/libs/*.jar', fingerprint: true
-            echo "SUCCESS: Image ${IMAGE_NAME}:${env.BUILD_NUMBER} pushed to Docker Hub."
+        }
+        success {
+            echo "Success! Nikita, build is ready."
         }
         failure {
-            echo "FAILURE: Pipeline failed. Check console output."
+            echo "Build failed! Checking logs..."
         }
     }
 }
