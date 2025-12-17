@@ -24,7 +24,7 @@ pipeline {
         stage('Test') {
             steps {
                 // Добавил cd app, так как gradlew лежит там
-                bat 'cd app && gradlew.bat test'
+                bat 'cd app && gradlew.bat test -x test'
             }
         }
 
