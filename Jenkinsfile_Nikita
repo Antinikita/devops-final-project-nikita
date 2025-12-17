@@ -37,11 +37,15 @@ pipeline {
         stage('Push to Registry') {
             steps {
                 script {
-                    // Убедись, что ID совпадает с тем, что в твоем Jenkins
-                    docker.withRegistry('', "${DOCKER_REGISTRY_CRED}") {
+                    // Используем стандартный метод Jenkins для получения логина/пароля
+                    withCredentials([usernamePassword(credentialsId: "${DOCKER_REGISTRY_CRED}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
+                        // Логинимся в Docker Hub
+                        bat "docker login -u %DOCKER_USER% -p %DOCKER_PASS%"
+                        // Пушим образ
                         bat "docker push ${DOCKER_IMAGE}"
+                        // Разлогиниваемся для безопасности
+                        bat "docker logout"
                     }
-                }
             }
         }
 
