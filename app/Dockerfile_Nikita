@@ -1,25 +1,35 @@
-# --- Stage 1: Build (Сборка внутри контейнера) ---
-FROM gradle:8.11-jdk17 AS builder
+# Стейдж сборки (Builder)
+FROM eclipse-temurin:17-jdk-alpine AS builder
+
 WORKDIR /app
-COPY . .
-# Снова собираем внутри для чистоты и воспроизводимости
+
+# Шаг 1: Копируем только то, что нужно для загрузки Gradle
+COPY gradlew .
+COPY gradle/ gradle/
+COPY build.gradle .
+COPY settings.gradle .
+
+# Шаг 2: Скачиваем Gradle (этот слой закэшируется)
+# Флаг --no-daemon важен для Docker-контейнеров
+RUN ./gradlew --version
+
+# Шаг 3: Копируем исходный код
+COPY src/ src/
+
+# Шаг 4: Собираем проект (теперь Gradle уже на месте)
 RUN ./gradlew clean build -x test
 
-# --- Stage 2: Runtime (Минимальный образ для запуска) ---
+# Стейдж запуска (Final image)
 FROM eclipse-temurin:17-jre-alpine
+
 WORKDIR /app
 
-# Безопасность: работаем не от root
+# Создаем пользователя для безопасности (требование 2.1)
 RUN addgroup -S nikitagrp && adduser -S nikita -G nikitagrp
-USER nikita
 
-# Копируем JAR, который мы только что собрали
-# Имя файла может немного отличаться, поэтому используем маску *.jar
+# Копируем только готовый jar из первого стейджа
 COPY --from=builder /app/build/libs/*.jar app_Nikita.jar
 
-# Проверка работоспособности (требование Healthcheck)
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
+USER nikita
 
-EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app_Nikita.jar"]
