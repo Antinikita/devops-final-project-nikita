@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    environment {
+        // Твой логин из скриншота
+        REGISTRY_USER = "antinikita"
+        IMAGE_NAME = "todo-app-nikita"
+        // ID из твоего скриншота!
+        DOCKER_CREDS_ID = "dockerhub-creds"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build & Test') {
+            steps {
+                dir('app') {
+                    // Используем bat для Windows. Тесты включены!
+                    bat '.\gradlew.bat clean build'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('app') {
+                    // Тегируем образом с номером билда (динамическое тегирование)
+                    bat "docker build -t ${REGISTRY_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER} -f Dockerfile_Nikita ."
+                    // Также тегируем как latest для удобства
+                    bat "docker tag ${REGISTRY_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER} ${REGISTRY_USER}/${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            // Пушим только если это главная ветка
+            when { branch 'main' }
+            steps {
+                // Используем твой ID из скриншота
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDS_ID}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    bat "echo %PASS% | docker login -u %USER% --password-stdin"
+                    bat "docker push ${REGISTRY_USER}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    bat "docker push ${REGISTRY_USER}/${IMAGE_NAME}:latest"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            // Архивируем JAR (требование: Archive build artifacts)
+            archiveArtifacts artifacts: 'app/build/libs/*.jar', fingerprint: true
+            echo "SUCCESS: Image ${IMAGE_NAME}:${env.BUILD_NUMBER} pushed to Docker Hub."
+        }
+        failure {
+            echo "FAILURE: Pipeline failed. Check console output."
+        }
+    }
+}

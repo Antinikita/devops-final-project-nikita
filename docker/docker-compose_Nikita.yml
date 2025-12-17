@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db-nikita:
+    image: postgres:15
+    container_name: postgres-nikita
+    environment:
+      - POSTGRES_DB=library_db
+      - POSTGRES_USER=nikita_user
+      - POSTGRES_PASSWORD=nikita_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_nikita:/var/lib/postgresql/data
+    networks:
+      - nikita-network
+
+  app-nikita:
+    build:
+      context: ../app
+      dockerfile: Dockerfile_Nikita
+    container_name: app-nikita
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-nikita:5432/library_db
+      - SPRING_DATASOURCE_USERNAME=nikita_user
+      - SPRING_DATASOURCE_PASSWORD=nikita_password
+    depends_on:
+      - db-nikita
+    networks:
+      - nikita-network
+
+networks:
+  nikita-network:
+    driver: bridge
+
+volumes:
+  postgres_data_nikita:

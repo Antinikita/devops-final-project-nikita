@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/devops-project-Nikita.iml" filepath="$PROJECT_DIR$/.idea/devops-project-Nikita.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/devops-project-nikita.main.iml" filepath="$PROJECT_DIR$/.idea/modules/devops-project-nikita.main.iml" />
+    </modules>
+  </component>
+</project>

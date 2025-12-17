@@ -1,0 +1,6 @@
+#!/bin/bash
+LOG="/opt/devops-project-Nikita/scripts/install_Nikita.log"
+echo "Setup started by Nikita" > $LOG
+sudo apt update && sudo apt install -y openjdk-17-jdk git >> $LOG
+java -version 2>&1 >> $LOG
+echo "Verification complete." >> $LOG
